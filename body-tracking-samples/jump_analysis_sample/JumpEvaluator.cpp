@@ -66,9 +66,6 @@ void JumpEvaluator::UpdateData(k4abt_body_t selectedBody, uint64_t currentTimest
         printf(" )");
         printf("\n");
         
-       
-
-
     }
 
     // Calculate jump results

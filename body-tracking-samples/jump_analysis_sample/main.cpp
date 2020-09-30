@@ -132,8 +132,6 @@ int64_t ProcessKey(void* /*context*/, int key)
 }
 
 
-
-
 int64_t ReviewWindowCloseCallbackMain(void* context)
 {
 
@@ -222,8 +220,6 @@ void write_csv(std::string path, std::vector<std::pair<std::string, std::vector<
     std::ofstream myFile(path);
   
     // Send column names to the stream
-    
-
 
     for (int j = 0; j < dataset.size(); ++j)
     {
@@ -286,9 +282,6 @@ void LoadFile() {
     char input[200];
 
     printf("\n Load a file... \n \n Files to choose: \n");
-    
-
-    //std::cout << pathString << "\n";
 
     for (const auto& entry : fs::directory_iterator(pathString)) {
 
@@ -302,8 +295,6 @@ void LoadFile() {
 
     printf("\nEnter a file:   ");
     scanf("%s", input);
-
-    //std::cout << (std::string(pathString + input).c_str());
 
     Load_csv(std::string(pathString + input + ".csv").c_str());
     /*
@@ -401,16 +392,14 @@ int main()
     m_window3dReplay.SetCloseCallback(CloseCallback);
     m_window3dReplay.SetKeyCallback(ProcessKey);
     
-
     bool isReplayWindowCreated = false;
-
-
 
     // Initialize the jump evaluator
    // JumpEvaluator jumpEvaluator;
 
-    clock_t before = clock();
+    clock_t before;
     clock_t difference;
+    bool runOnce = false;
     int fpscounter = 0;
 
     while (s_isRunning)
@@ -440,7 +429,6 @@ int main()
         }
 
 
-
         // Pop Result from Body Tracker
         k4abt_frame_t bodyFrame = nullptr;
         k4a_wait_result_t popFrameResult = k4abt_tracker_pop_result(tracker, &bodyFrame, 0); // timeout_in_ms is set to 0
@@ -460,12 +448,23 @@ int main()
                 k4abt_body_t body;
                 VERIFY(k4abt_frame_get_body_skeleton(bodyFrame, JumpEvaluationBodyIndex, &body.skeleton), "Get skeleton from body frame failed!");
                 body.id = k4abt_frame_get_body_id(bodyFrame, JumpEvaluationBodyIndex);
+             
+                if (!isRecording) {
+                    float dist = sqrt(pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[0], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[1], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[2], 2));
+                    printf("Distance: %f meters \n", dist / 1000);
+                }
 
                 uint64_t timestampUsec = k4abt_frame_get_device_timestamp_usec(bodyFrame);
 
-                if (isRecording) {
+               if (isRecording) {
 
                     fpscounter++;
+
+
+                    if (!runOnce) {
+                        before = clock();
+                        runOnce = true;
+                    }
 
                     difference = clock() - before;
 
@@ -474,6 +473,13 @@ int main()
                         before = clock();
                         fpscounter = 0;
                     }
+
+                       // printf(" frames in 6 sec %d:  , frames pr sec: %d \n",m_framesTimestampInUsec.size()+1, (m_framesTimestampInUsec.size()+1)/6 );
+
+                        //body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST];
+                       // float dist = sqrt(pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[0], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[1], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[2], 2));
+                        //printf("Distance: %f meters", dist/1000);
+                   // }
                     m_listOfBodyPositions.push_back(body);
                     m_framesTimestampInUsec.push_back(static_cast<float>(timestampUsec));
                 }
@@ -506,7 +512,7 @@ int main()
 #pragma endregion
             
             // Visualize point cloud
-            k4a_image_t depthImage = k4a_capture_get_depth_image(originalCapture);
+           /* k4a_image_t depthImage = k4a_capture_get_depth_image(originalCapture);
             if (!isRecording && showPointCloud) {
                 window3d.UpdatePointClouds(depthImage);
             }
@@ -523,15 +529,12 @@ int main()
                 Color color = g_bodyColors[body.id % g_bodyColors.size()];
                 color.a = i == JumpEvaluationBodyIndex ? 0.8f : 0.1f;
 
-            window3d.AddBody(body, color);
-
-            }
-            
+                window3d.AddBody(body, color);
+            }         */
             k4a_capture_release(originalCapture);
-            k4a_image_release(depthImage);
+            //k4a_image_release(depthImage);
             k4abt_frame_release(bodyFrame);
         }
-
         window3d.Render();
     }
 
@@ -577,8 +580,6 @@ int main()
     k4a_device_close(device);
 
     if (saveRecord) {
-
-
         printf("number of frames to be saved: %d\n", m_listOfBodyPositions.size());
 
         char str[200];
@@ -589,9 +590,6 @@ int main()
         std::string newPathCSV;
 
         bool validFileName = false;
-
-
-        
 
         while (!validFileName) {
             printf("\n Enter a name for the file: ");
@@ -657,7 +655,6 @@ int main()
                 fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].position.v[2]); //z
 
                 vals[x*9].second.push_back( m_listOfBodyPositions[i].skeleton.joints[x].position.v[0]);
-                std::cout << "\n" <<std::fixed << std::setprecision(6) << vals[x * 9].second[vals[x * 9].second.size() - 1] << ", ";
                 vals[x * 9 +1].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].position.v[1]);
                 vals[x * 9 + 2].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].position.v[2]);
                 vals[x * 9 + 3].second.push_back(0.0);
@@ -675,11 +672,10 @@ int main()
 
 
 
+
                 //confidence of joint
                 fprintf(fp, "%d,", m_listOfBodyPositions[i].skeleton.joints[x].confidence_level); // cofidence [0-4] 0 lowest, 4 highest               
                 vals[x * 9 + 8].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].confidence_level);
-
-
             }   
         }
         vals.push_back({ "TimeStamp", m_framesTimestampInUsec });
@@ -688,8 +684,6 @@ int main()
         // close the file
         fclose(fp);
         write_csv(newPathCSV, vals);
-            
-  
     }
     return 0;
 }
