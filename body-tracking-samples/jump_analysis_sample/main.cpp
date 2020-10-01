@@ -40,14 +40,35 @@ void PrintAppUsage()
     printf(" 4. When you have stopped record, press s to save it and follow instructions.\n");
     printf(" 5. Press 'Q' or 'ESC' to exit program, this is important because it turns off the camera\n");
     printf(" 6. Press 'I' to show pointCloud. This will be stopped if recording for performance reasons\n");
+    printf("7. Press 'M' to stream to Python Pipe");
+
     printf("\n");
 }
+
+#define BUFSIZE 512
+// Buffer size for writing frame data to pipe
+// Assuming depth_mode = K4A_DEPTH_MODE_NFOV_UNBINNED, change it otherwise
+// Assuming streaming 2 channels: depth & ab, change it otherwise
+#define RESPOND_BUFFER 772 // (32 * 6 +1 ) * 4 = 772 bytes
+
+
+DWORD WINAPI InstanceThread(LPVOID);
+VOID GetAnswerToRequest(LPTSTR, LPTSTR, LPDWORD);
+
+// Create pipe server
+BOOL fConnected = FALSE;
+DWORD dwThreadId = 0;
+HANDLE hPipe = INVALID_HANDLE_VALUE, hThread = NULL;
+LPTSTR lpszPipename = const_cast<LPSTR>(TEXT("\\\\.\\pipe\\mynamedpipe"));
+
 
 // Global State and Key Process Function
 bool s_isRunning = true;
 
 std::vector<k4abt_body_t> m_listOfBodyPositions;
 std::vector<float> m_framesTimestampInUsec;
+
+float streamData[193]; //193 datapoints pr frame
 
 const int m_defaultWindowWidth = 640;
 const int m_defaultWindowHeight = 576;
@@ -58,16 +79,25 @@ bool m_reviewWindowIsRunning = false;
 bool isRecording = false;
 bool quit = false;
 
+
 bool useHandsToRecordOn = false;
 
 bool runOrLoadChosed = false;
 
 bool saveRecord = false;
 
+bool stream = false;
+
+float oldStamp = -1;
+
+bool streamConnected = false;
+
 bool showPointCloud = false;
 
-HandRaisedDetector m_handRaisedDetector;
 bool m_previousHandsAreRaised = false;
+
+HandRaisedDetector m_handRaisedDetector;
+
 
 int64_t ProcessKey(void* /*context*/, int key)
 {
@@ -114,6 +144,11 @@ int64_t ProcessKey(void* /*context*/, int key)
         m_reviewWindowIsRunning = false;
         break;
 
+    case GLFW_KEY_M:
+        stream = true;
+        printf("Streaming...");
+        break;
+
 
     case GLFW_KEY_R:
         if (!isRecording) {
@@ -131,6 +166,19 @@ int64_t ProcessKey(void* /*context*/, int key)
     return 1;
 }
 
+float CalcVelGivenTwoPointsAndTime(float x1, float y1, float z1, float time1, float x2, float y2, float z2, float time2) {
+
+    float dist = sqrt(pow((x2 - x1), 2) + pow((y2 - y1), 2) + pow((z2 - z1), 2));
+    
+    float time = time2 - time1;
+
+   // printf("dist: %f, time: %f, vel: %f \n", dist, time, (dist / time));
+
+    return (dist / time)*1000; //meter/second
+
+    
+
+}
 
 int64_t ReviewWindowCloseCallbackMain(void* context)
 {
@@ -274,6 +322,8 @@ void CreateRenderWindow(
 
 void LoadFile() {
 
+    // CalcVelGivenTwoPointsAndTime(0, 0, 0, 0, 1000, 1000, 1000, 1000);
+
     const int numberOfFloatsPrJoint = 225;
     //                            vector pos  orientation                     timestamp
     float str[numberOfFloatsPrJoint]; //32 vectors (body) *( ( 3(x,y,z) + 3*(x,y,z) + 1(confidence) )+ 1 (timestamp)  32 (3 * 3 + 1) +1 = 225 
@@ -340,6 +390,209 @@ void LoadFile() {
         }
     }*/
     //fclose(ptr);   
+}
+
+void Stream()
+{
+    printf(TEXT("\nPipe Server: Main thread awaiting client connection on %s\n"), lpszPipename);
+    hPipe = CreateNamedPipe(lpszPipename,               // pipe name
+        PIPE_ACCESS_DUPLEX,         // read/write access
+        PIPE_TYPE_MESSAGE |         // message type pipe
+        PIPE_READMODE_MESSAGE | // message-read mode
+        PIPE_WAIT,              // blocking mode
+        PIPE_UNLIMITED_INSTANCES,   // max. instances
+        RESPOND_BUFFER,              // output buffer size
+        RESPOND_BUFFER,              // input buffer size
+        0,                          // client time-out
+        NULL);                      // default security attribute
+
+    if (hPipe == INVALID_HANDLE_VALUE)
+    {
+        printf(TEXT("CreateNamedPipe failed, GLE=%d.\n"), GetLastError());
+    }
+
+    // Wait for the client to connect; if it succeeds,
+    // the function returns a nonzero value. If the function
+    // returns zero, GetLastError returns ERROR_PIPE_CONNECTED.
+
+    fConnected = ConnectNamedPipe(hPipe, NULL) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
+
+    if (fConnected)
+    {
+        printf("Client connected, creating a processing thread.\n");
+
+        // Create a thread for this client.
+        hThread = CreateThread(NULL,           // no security attribute
+            0,              // default stack size
+            InstanceThread, // thread proc
+            (LPVOID)hPipe,  // thread parameter
+            0,              // not suspended
+            &dwThreadId);   // returns thread ID
+
+        if (hThread == NULL)
+        {
+            printf(TEXT("CreateThread failed, GLE=%d.\n"), GetLastError());
+        }
+        else
+            CloseHandle(hThread);
+    }
+    else
+        // The client could not connect, so close the pipe.
+        CloseHandle(hPipe);
+
+    printf("called again********************************************************************************************************");
+}
+
+
+
+DWORD WINAPI InstanceThread(LPVOID lpvParam)
+// This routine is a thread processing function to read from and reply to a client
+// via the open pipe connection passed from the main loop. Note this allows
+// the main loop to continue executing, potentially creating more threads of
+// of this procedure to run concurrently, depending on the number of incoming
+// client connections.
+{
+    HANDLE hHeap = GetProcessHeap();
+    TCHAR* pchRequest = (TCHAR*)HeapAlloc(hHeap, 0, BUFSIZE * sizeof(TCHAR));
+    TCHAR* pchReply = (TCHAR*)HeapAlloc(hHeap, 0, RESPOND_BUFFER);
+
+    DWORD cbBytesRead = 0, cbReplyBytes = 0, cbWritten = 0;
+    BOOL fSuccess = FALSE;
+    HANDLE hPipe = NULL;
+
+    // Do some extra error checking since the app will keep running even if this
+    // thread fails.
+
+    if (lpvParam == NULL)
+    {
+        printf("\nERROR - Pipe Server Failure:\n");
+        printf("   InstanceThread got an unexpected NULL value in lpvParam.\n");
+        printf("   InstanceThread exitting.\n");
+        if (pchReply != NULL)
+            HeapFree(hHeap, 0, pchReply);
+        if (pchRequest != NULL)
+            HeapFree(hHeap, 0, pchRequest);
+        return (DWORD)-1;
+    }
+
+    if (pchRequest == NULL)
+    {
+        printf("\nERROR - Pipe Server Failure:\n");
+        printf("   InstanceThread got an unexpected NULL heap allocation.\n");
+        printf("   InstanceThread exitting.\n");
+        if (pchReply != NULL)
+            HeapFree(hHeap, 0, pchReply);
+        return (DWORD)-1;
+    }
+
+    if (pchReply == NULL)
+    {
+        printf("\nERROR - Pipe Server Failure:\n");
+        printf("   InstanceThread got an unexpected NULL heap allocation.\n");
+        printf("   InstanceThread exitting.\n");
+        if (pchRequest != NULL)
+            HeapFree(hHeap, 0, pchRequest);
+        return (DWORD)-1;
+    }
+
+    // Print verbose messages. In production code, this should be for debugging only.
+    printf("InstanceThread created, receiving and processing messages.\n");
+
+    // The thread's parameter is a handle to a pipe object instance.
+
+    hPipe = (HANDLE)lpvParam;
+
+    // Loop until done reading
+    while (1)
+    {
+        // Read client requests from the pipe. This simplistic code only allows messages
+        // up to BUFSIZE characters in length.
+        fSuccess = ReadFile(hPipe,                   // handle to pipe
+            pchRequest,              // buffer to receive data
+            BUFSIZE * sizeof(TCHAR), // size of buffer
+            &cbBytesRead,            // number of bytes read
+            NULL);                   // not overlapped I/O
+
+        if (!fSuccess || cbBytesRead == 0)
+        {
+            if (GetLastError() == ERROR_BROKEN_PIPE)
+            {
+                printf(TEXT("InstanceThread: client disconnected.\n"), GetLastError());
+            }
+            else
+            {
+                printf(TEXT("InstanceThread ReadFile failed, GLE=%d.\n"), GetLastError());
+            }
+            break;
+        }
+
+        // Process the incoming message.
+        GetAnswerToRequest(pchRequest, pchReply, &cbReplyBytes);
+
+        // Write the reply to the pipe.
+        fSuccess = WriteFile(hPipe,        // handle to pipe
+            pchReply,     // buffer to write from
+            cbReplyBytes, // number of bytes to write
+            &cbWritten,   // number of bytes written
+            NULL);        // not overlapped I/O
+
+        if (!fSuccess || cbReplyBytes != cbWritten)
+        {
+            printf(TEXT("InstanceThread WriteFile failed, GLE=%d.\n"), GetLastError());
+            break;
+        }
+    }
+
+    // Flush the pipe to allow the client to read the pipe's contents
+    // before disconnecting. Then disconnect the pipe, and close the
+    // handle to this pipe instance.
+
+    FlushFileBuffers(hPipe);
+    DisconnectNamedPipe(hPipe);
+    CloseHandle(hPipe);
+
+    HeapFree(hHeap, 0, pchRequest);
+    HeapFree(hHeap, 0, pchReply);
+
+    printf("InstanceThread exitting.\n");
+    return 1;
+}
+
+VOID GetAnswerToRequest(LPTSTR pchRequest,
+    LPTSTR pchReply,
+    LPDWORD pchBytes)
+    // This routine is a simple function to print the client request to the console
+    // and populate the reply buffer with a default data string. This is where you
+    // would put the actual client request processing code that runs in the context
+    // of an instance thread. Keep in mind the main thread will continue to wait for
+    // and receive other client connections while the instance thread is working.
+{
+    //printf(TEXT("Client Request String:\"%s\"\n"), pchRequest);
+
+    // Check the outgoing message to make sure it's not too long for the buffer.
+
+        // Probe for a IR16 and depth image
+
+    if (oldStamp != streamData[192]) {
+        // Write depth image data to reply
+        memcpy(&pchReply[0], &(streamData[0]), 772);
+        oldStamp = streamData[192];
+        printf("%f \n", oldStamp);
+
+    }
+    else
+    {
+        //printf(" | Ir16 or Depth None                    ");
+        *pchBytes = 0;
+        pchReply[0] = 0;
+        //printf("StringCchCopy failed, no outgoing message.\n");
+    }
+
+    *pchBytes = 772;
+    //printf("streamdata size: %d \n", streamData.size());
+
+
+
 }
 
 
@@ -450,11 +703,25 @@ int main()
                 body.id = k4abt_frame_get_body_id(bodyFrame, JumpEvaluationBodyIndex);
              
                 if (!isRecording) {
-                    float dist = sqrt(pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[0], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[1], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[2], 2));
-                    printf("Distance: %f meters \n", dist / 1000);
+                    //float dist = sqrt(pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[0], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[1], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[2], 2));
+                    //printf("Distance: %f meters \n", dist / 1000);
                 }
 
                 uint64_t timestampUsec = k4abt_frame_get_device_timestamp_usec(bodyFrame);
+
+                if (stream) {
+
+                    for (int k = 0; k < 32; k++) {
+                        streamData[k * 6  ] = body.skeleton.joints[k].position.v[0];
+                        streamData[k * 6+1] = body.skeleton.joints[k].position.v[1];
+                        streamData[k * 6+2] = body.skeleton.joints[k].position.v[2];
+                        streamData[k * 6+3] = body.skeleton.joints[k].orientation.v[0];
+                        streamData[k * 6+4] = body.skeleton.joints[k].orientation.v[1];
+                        streamData[k * 6+5] = body.skeleton.joints[k].orientation.v[2];
+                    }
+                    streamData[192] = timestampUsec;    
+
+                }            
 
                if (isRecording) {
 
@@ -477,11 +744,13 @@ int main()
                        // printf(" frames in 6 sec %d:  , frames pr sec: %d \n",m_framesTimestampInUsec.size()+1, (m_framesTimestampInUsec.size()+1)/6 );
 
                         //body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST];
-                       // float dist = sqrt(pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[0], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[1], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[2], 2));
+                        //float dist = sqrt(pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[0], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[1], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[2], 2));
                         //printf("Distance: %f meters", dist/1000);
                    // }
-                    m_listOfBodyPositions.push_back(body);
-                    m_framesTimestampInUsec.push_back(static_cast<float>(timestampUsec));
+                    
+                        m_listOfBodyPositions.push_back(body);
+                        m_framesTimestampInUsec.push_back(static_cast<float>(timestampUsec));
+                    
                 }
 
 #pragma region Hand Raise Detector
@@ -512,7 +781,7 @@ int main()
 #pragma endregion
             
             // Visualize point cloud
-           /* k4a_image_t depthImage = k4a_capture_get_depth_image(originalCapture);
+            k4a_image_t depthImage = k4a_capture_get_depth_image(originalCapture);
             if (!isRecording && showPointCloud) {
                 window3d.UpdatePointClouds(depthImage);
             }
@@ -530,12 +799,17 @@ int main()
                 color.a = i == JumpEvaluationBodyIndex ? 0.8f : 0.1f;
 
                 window3d.AddBody(body, color);
-            }         */
+            }         
             k4a_capture_release(originalCapture);
-            //k4a_image_release(depthImage);
+            k4a_image_release(depthImage);
             k4abt_frame_release(bodyFrame);
         }
         window3d.Render();
+        if (stream && !streamConnected) {
+            Stream();
+            streamConnected = true;
+        }
+
     }
 
     if (!quit) {
@@ -657,7 +931,12 @@ int main()
                 vals[x*9].second.push_back( m_listOfBodyPositions[i].skeleton.joints[x].position.v[0]);
                 vals[x * 9 +1].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].position.v[1]);
                 vals[x * 9 + 2].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].position.v[2]);
-                vals[x * 9 + 3].second.push_back(0.0);
+                if (i > 0) {
+                    vals[x * 9 + 3].second.push_back(CalcVelGivenTwoPointsAndTime(m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i-1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i]));
+                    printf("x1 :%f, y1: %f, z1: %f, time1: %f, x2: %f, y2: %f, z2: %f,time2: %f \n", m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i-1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i]);
+                }
+                else 
+                    vals[x * 9 + 3].second.push_back(0.0);
 
                 //Orientation
                 fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[0]); //x
@@ -687,3 +966,5 @@ int main()
     }
     return 0;
 }
+
+
