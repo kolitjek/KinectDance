@@ -62,6 +62,9 @@ HANDLE hPipe = INVALID_HANDLE_VALUE, hThread = NULL;
 LPTSTR lpszPipename = const_cast<LPSTR>(TEXT("\\\\.\\pipe\\mynamedpipe"));
 
 
+float originBody[3] = { 0, -150, 2000 };
+
+
 // Global State and Key Process Function
 bool s_isRunning = true;
 
@@ -81,6 +84,8 @@ bool quit = false;
 
 
 bool useHandsToRecordOn = false;
+
+bool normalize = false;
 
 bool runOrLoadChosed = false;
 
@@ -149,6 +154,18 @@ int64_t ProcessKey(void* /*context*/, int key)
         printf("Streaming...");
         break;
 
+    case GLFW_KEY_N:
+        if (!normalize) {
+            normalize = true;
+            printf("Normalize skeleton...");
+        }
+                
+        else {
+            printf("Don't normalize skeleton");
+            normalize = false;
+        }
+            break;
+
 
     case GLFW_KEY_R:
         if (!isRecording) {
@@ -186,6 +203,21 @@ int64_t ReviewWindowCloseCallbackMain(void* context)
     bool* running = (bool*)context;
     *running = false;
     return 1;
+}
+
+k4abt_body_t  NormalizeBody(k4abt_body_t body) {
+
+        float originX = originBody[0] - body.skeleton.joints[0].position.v[0];
+        float originY = originBody[1] - body.skeleton.joints[0].position.v[1];
+        float originZ = originBody[2] - body.skeleton.joints[0].position.v[2];
+    for (int i = 0; i < 32; i++) {
+
+        body.skeleton.joints[i].position.v[0] = body.skeleton.joints[i].position.v[0] + originX;
+        body.skeleton.joints[i].position.v[1] = body.skeleton.joints[i].position.v[1] + originY;
+        body.skeleton.joints[i].position.v[2] = body.skeleton.joints[i].position.v[2] + originZ;
+    }
+
+    return body;
 }
 
 void Load_csv(std::string filename) {
@@ -703,8 +735,11 @@ int main()
                 body.id = k4abt_frame_get_body_id(bodyFrame, JumpEvaluationBodyIndex);
              
                 if (!isRecording) {
-                    //float dist = sqrt(pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[0], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[1], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[2], 2));
-                    //printf("Distance: %f meters \n", dist / 1000);
+                   // float dist = sqrt(pow(body.skeleton.joints[K4ABT_JOINT_PELVIS].position.v[0], 2) + pow(body.skeleton.joints[K4ABT_JOINT_PELVIS].position.v[1], 2) + pow(body.skeleton.joints[K4ABT_JOINT_PELVIS].position.v[2], 2));
+                    float distBetween = sqrt(pow(body.skeleton.joints[K4ABT_JOINT_SHOULDER_LEFT].position.v[0] - body.skeleton.joints[K4ABT_JOINT_ELBOW_LEFT].position.v[0], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SHOULDER_LEFT].position.v[1] - body.skeleton.joints[K4ABT_JOINT_ELBOW_LEFT].position.v[1], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SHOULDER_LEFT].position.v[2] - body.skeleton.joints[K4ABT_JOINT_ELBOW_LEFT].position.v[2], 2));
+                    //printf("X: %f, Y: %f,  Distance(Z): %f meters \n", body.skeleton.joints[K4ABT_JOINT_PELVIS].position.v[0], body.skeleton.joints[K4ABT_JOINT_PELVIS].position.v[1], dist / 1000);
+                    printf("Dist betwen left shoulder and left elbow: %f \n", distBetween);
+
                 }
 
                 uint64_t timestampUsec = k4abt_frame_get_device_timestamp_usec(bodyFrame);
@@ -748,9 +783,17 @@ int main()
                         //printf("Distance: %f meters", dist/1000);
                    // }
                     
-                        m_listOfBodyPositions.push_back(body);
-                        m_framesTimestampInUsec.push_back(static_cast<float>(timestampUsec));
+
+                        if (normalize) {
+                            m_listOfBodyPositions.push_back(NormalizeBody(body));
+                        }
+
+                        else
+                        {
+                            m_listOfBodyPositions.push_back(body);
+                        }
                     
+                        m_framesTimestampInUsec.push_back(static_cast<float>(timestampUsec));
                 }
 
 #pragma region Hand Raise Detector
@@ -797,8 +840,11 @@ int main()
 
                 Color color = g_bodyColors[body.id % g_bodyColors.size()];
                 color.a = i == JumpEvaluationBodyIndex ? 0.8f : 0.1f;
+                if(normalize)
+                window3d.AddBody(NormalizeBody( body), color); // HERE
 
-                window3d.AddBody(body, color);
+                else
+                    window3d.AddBody(body, color); // HERE
             }         
             k4a_capture_release(originalCapture);
             k4a_image_release(depthImage);

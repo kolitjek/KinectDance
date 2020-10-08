@@ -17,9 +17,17 @@ import matplotlib.pyplot as plt
 #MAX_DEPTH_FOR_VIS = 8000.0
 #MAX_AB_FOR_VIS = 512.0
 
+clipFrames = 165
+
+buffer = []
+currentdata = []
+
+
+
 if __name__ == "__main__":
 
     # Create pipe client
+
     fileHandle = win32file.CreateFile("\\\\.\\pipe\\mynamedpipe",
         win32file.GENERIC_READ | win32file.GENERIC_WRITE,
         0, None,
@@ -37,9 +45,20 @@ if __name__ == "__main__":
         #sys.stdout.write(str(inputData[1]))
         data = np.frombuffer(inputData[1], dtype="float32", count=-1, offset=0)
         if(OldStamp != data[192]):
-            print("%.6f" %data[192])
+            #print("%.6f" %data[192])
             OldStamp = data[192]
+            if(len(buffer) == clipFrames):
+                buffer.pop(0)
+            buffer.append(data) #BUFFER MIGHT NEED TO BE REVERSED
+            for x in buffer[0]:
+                print(("%.6f" %x))
+
+
+            print("***************************************************************************")
+
+            #print(len(buffer)/193)
         #sys.stdout.write("Len: " + (str(data[192]) + "\n"))
+
 
 
         # Reshape for image visualization
