@@ -749,6 +749,8 @@ int main()
               
 
                 if (stream) {
+                    if (normalize)
+                        body = NormalizeBody(body);
 
                     for (int k = 0; k < 32; k++) {
                         streamData[k * 9  ] = body.skeleton.joints[k].position.v[0];
@@ -767,25 +769,16 @@ int main()
                         streamData[k * 9+5] = body.skeleton.joints[k].orientation.v[1];
                         streamData[k * 9+6] = body.skeleton.joints[k].orientation.v[2];
 
-                        streamData[k * 9 + 7] = 0 ; //oriCVel
+                        streamData[k * 9 + 7] = 0 ; //oriCVelS
 
 
                         streamData[k * 9+8] = body.skeleton.joints[k].confidence_level; //confidence
                     }
-                    streamData[288] = timestampUsec;
-                    if (normalize) {
-
-                        k4abt_body_t nBody = NormalizeBody(body);
-
-                        streamData[289] = nBody.skeleton.joints[0].position.v[0];
-                        streamData[290] = nBody.skeleton.joints[0].position.v[1];
-                        streamData[291] = nBody.skeleton.joints[0].position.v[2];
-                    }
-                    else {
-                        streamData[289] = body.skeleton.joints[0].position.v[0];
-                        streamData[290] = body.skeleton.joints[0].position.v[1];
-                        streamData[291] = body.skeleton.joints[0].position.v[2];
-                    }
+                    streamData[288] = timestampUsec;                 
+                    streamData[289] = body.skeleton.joints[0].position.v[0];
+                    streamData[290] = body.skeleton.joints[0].position.v[1];
+                    streamData[291] = body.skeleton.joints[0].position.v[2];
+                    
                     printf("%f blag", streamData[288]);
                     prevBody = body;
                     prevTime = timestampUsec;
