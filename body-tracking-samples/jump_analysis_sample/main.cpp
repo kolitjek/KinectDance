@@ -747,8 +747,15 @@ int main()
                 uint64_t timestampUsec = k4abt_frame_get_device_timestamp_usec(bodyFrame);
 
               
-
+                //wrong x,y,z when normalize for the lest 3 pos
                 if (stream) {
+
+
+                    streamData[288] = timestampUsec;                 
+                    streamData[289] = body.skeleton.joints[0].position.v[0];
+                    streamData[290] = body.skeleton.joints[0].position.v[1];
+                    streamData[291] = body.skeleton.joints[0].position.v[2];
+
                     if (normalize)
                         body = NormalizeBody(body);
 
@@ -774,10 +781,6 @@ int main()
 
                         streamData[k * 9+8] = body.skeleton.joints[k].confidence_level; //confidence
                     }
-                    streamData[288] = timestampUsec;                 
-                    streamData[289] = body.skeleton.joints[0].position.v[0];
-                    streamData[290] = body.skeleton.joints[0].position.v[1];
-                    streamData[291] = body.skeleton.joints[0].position.v[2];
                     
                     printf("%f blag", streamData[288]);
                     prevBody = body;
