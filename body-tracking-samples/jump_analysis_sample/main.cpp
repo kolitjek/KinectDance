@@ -71,7 +71,7 @@ bool s_isRunning = true;
 std::vector<k4abt_body_t> m_listOfBodyPositions;
 std::vector<float> m_framesTimestampInUsec;
 
-float streamData[193]; //193 datapoints pr frame
+float streamData[292]; //193 datapoints pr frame
 
 const int m_defaultWindowWidth = 640;
 const int m_defaultWindowHeight = 576;
@@ -605,10 +605,10 @@ VOID GetAnswerToRequest(LPTSTR pchRequest,
 
         // Probe for a IR16 and depth image
 
-    if (oldStamp != streamData[192]) {
+    if (oldStamp != streamData[288]) {
         // Write depth image data to reply
-        memcpy(&pchReply[0], &(streamData[0]), 772);
-        oldStamp = streamData[192];
+        memcpy(&pchReply[0], &(streamData[0]), 1168);
+        oldStamp = streamData[288];
         printf("%f \n", oldStamp);
 
     }
@@ -620,7 +620,7 @@ VOID GetAnswerToRequest(LPTSTR pchRequest,
         //printf("StringCchCopy failed, no outgoing message.\n");
     }
 
-    *pchBytes = 772;
+    *pchBytes = 1168;
     //printf("streamdata size: %d \n", streamData.size());
 
 
@@ -686,6 +686,8 @@ int main()
     clock_t difference;
     bool runOnce = false;
     int fpscounter = 0;
+    k4abt_body_t prevBody;
+    clock_t prevTime = -1;
 
     while (s_isRunning)
     {
@@ -744,18 +746,49 @@ int main()
 
                 uint64_t timestampUsec = k4abt_frame_get_device_timestamp_usec(bodyFrame);
 
+              
+
                 if (stream) {
 
                     for (int k = 0; k < 32; k++) {
-                        streamData[k * 6  ] = body.skeleton.joints[k].position.v[0];
-                        streamData[k * 6+1] = body.skeleton.joints[k].position.v[1];
-                        streamData[k * 6+2] = body.skeleton.joints[k].position.v[2];
-                        streamData[k * 6+3] = body.skeleton.joints[k].orientation.v[0];
-                        streamData[k * 6+4] = body.skeleton.joints[k].orientation.v[1];
-                        streamData[k * 6+5] = body.skeleton.joints[k].orientation.v[2];
-                    }
-                    streamData[192] = timestampUsec;    
+                        streamData[k * 9  ] = body.skeleton.joints[k].position.v[0];
+                        streamData[k * 9+1] = body.skeleton.joints[k].position.v[1];
+                        streamData[k * 9+2] = body.skeleton.joints[k].position.v[2];
 
+
+                        float posVel = 0;
+
+                        if(prevTime != -1 )
+                            float posVel = (CalcVelGivenTwoPointsAndTime(prevBody.skeleton.joints[k].position.v[0], prevBody.skeleton.joints[k].position.v[1], prevBody.skeleton.joints[k].position.v[2], prevTime, body.skeleton.joints[k].position.v[0], body.skeleton.joints[k].position.v[1], body.skeleton.joints[k].position.v[2], timestampUsec));
+                        
+                        streamData[k * 9 + 3] = body.skeleton.joints[k].position.v[2]; //posVel
+
+                        streamData[k * 9+4] = body.skeleton.joints[k].orientation.v[0];
+                        streamData[k * 9+5] = body.skeleton.joints[k].orientation.v[1];
+                        streamData[k * 9+6] = body.skeleton.joints[k].orientation.v[2];
+
+                        streamData[k * 9 + 7] = 0 ; //oriCVel
+
+
+                        streamData[k * 9+8] = body.skeleton.joints[k].confidence_level; //confidence
+                    }
+                    streamData[288] = timestampUsec;
+                    if (normalize) {
+
+                        k4abt_body_t nBody = NormalizeBody(body);
+
+                        streamData[289] = nBody.skeleton.joints[0].position.v[0];
+                        streamData[290] = nBody.skeleton.joints[0].position.v[1];
+                        streamData[291] = nBody.skeleton.joints[0].position.v[2];
+                    }
+                    else {
+                        streamData[289] = body.skeleton.joints[0].position.v[0];
+                        streamData[290] = body.skeleton.joints[0].position.v[1];
+                        streamData[291] = body.skeleton.joints[0].position.v[2];
+                    }
+                    printf("%f blag", streamData[288]);
+                    prevBody = body;
+                    prevTime = timestampUsec;
                 }            
 
                if (isRecording) {

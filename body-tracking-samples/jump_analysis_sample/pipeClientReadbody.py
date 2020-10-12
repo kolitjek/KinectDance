@@ -3,6 +3,8 @@
 import win32file
 import sys
 
+import keras
+
 import numpy as np
 import os, os.path
 
@@ -21,6 +23,8 @@ clipFrames = 165
 
 buffer = []
 currentdata = []
+
+model = keras.models.load_model('C:\\Users\\Anton\\Desktop\\aks\\Azure-Kinect-Samples-master\\body-tracking-samples\\jump_analysis_sample\\models\\mdl_wts.hdf5')
 
 
 
@@ -41,43 +45,46 @@ if __name__ == "__main__":
         request_msg = "Request bodyInfo"
         win32file.WriteFile(fileHandle, request_msg.encode())
         # Read reply data, need to be in same order/size as how you write them in the pipe server in pipe_streaming_example/main.cpp
-        inputData = win32file.ReadFile(fileHandle, 772) #(32*6+1) * 4bytes
+        inputData = win32file.ReadFile(fileHandle, 1168) #(32*6+1) * 4bytes
         #sys.stdout.write(str(inputData[1]))
         data = np.frombuffer(inputData[1], dtype="float32", count=-1, offset=0)
-        if(OldStamp != data[192]):
+        #print(len(data))
+        if(OldStamp != data[288]):
             #print("%.6f" %data[192])
-            OldStamp = data[192]
+            OldStamp = data[288]
             if(len(buffer) == clipFrames):
                 buffer.pop(0)
-            buffer.append(data) #BUFFER MIGHT NEED TO BE REVERSED
-            for x in buffer[0]:
-                print(("%.6f" %x))
+                #print(data[0])
 
 
-            print("***************************************************************************")
+            print("X, Y, Z *********************")
+            print("%.6f" %data[289])
+            print("%.6f" %data[290])
+            print("%.6f" %data[291])
 
-            #print(len(buffer)/193)
-        #sys.stdout.write("Len: " + (str(data[192]) + "\n"))
+            buffer.append(data[:-3]) #removes the last 3 elements from the list (x, y ,z)
+
+            #for x in buffer:
+             #   print("%.6f" %x[288])
+
+            rs = np.asarray(buffer)
+
+            #print( np.reshape(rs, (1, rs.shape[0], rs.shape[1])).shape)
+
+            if(len(buffer) == 165 ):
+                predict = model.predict(np.reshape(rs, (1, rs.shape[0], rs.shape[1])))
+                #pvalues = predict[0]
+                #print("%.6f" %pvalues[0])
+                #print("%.6f" % pvalues[1])
+                #print("%.6f" % pvalues[2])
+                print(np.reshape(rs, (1, rs.shape[0], rs.shape[1])))
+                print(rs[0][0])
+                print("*********************************'")
 
 
-
-        # Reshape for image visualization
-        #sys.stdout.write(str(inputData[1]))
-        #data = np.frombuffer(inputData[1], dtype=np.float32, count=-1, offset=0)
-        #sys.stdout.write(np.array2string(data[0]))
-        #sys.stdout.write(data[inputData[1]])
-       #depth_img_full = np.frombuffer(depth_data[1], dtype=np.uint16).reshape(FRAME_HEIGHT, FRAME_WIDTH).copy()
-        #ab_img_full = np.frombuffer(ab_data[1], dtype=np.uint16).reshape(FRAME_HEIGHT, FRAME_WIDTH).copy()
-
-        #depth_vis = (plt.get_cmap("gray")(depth_img_full / MAX_DEPTH_FOR_VIS)[..., :3]*255.0).astype(np.uint8)
-        #ab_vis = (plt.get_cmap("gray")(ab_img_full / MAX_AB_FOR_VIS)[..., :3]*255.0).astype(np.uint8)
-
-        # Visualize the images
-        #vis = np.hstack([depth_vis, ab_vis])
-        #vis = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
-
-        #cv2.imshow("vis", vis)
-
+           # for x in buffer[0]:
+            #   print(("%.6f" %x))
+            #print("***************************************************************************")
 
 
         key = cv2.waitKey(1)

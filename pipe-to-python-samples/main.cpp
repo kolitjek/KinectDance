@@ -290,7 +290,7 @@ VOID GetAnswerToRequest(LPTSTR pchRequest,
         // Probe for a IR16 and depth image
         depth_image = k4a_capture_get_depth_image(capture);
         ir_image = k4a_capture_get_ir_image(capture);
-        if ((depth_image != NULL) && (ir_image != NULL))
+            if ((depth_image != NULL) && (ir_image != NULL))
         {
             printf(" | Depth16 res:%4dx%4d stride:%5d\n",
                 k4a_image_get_height_pixels(depth_image),
