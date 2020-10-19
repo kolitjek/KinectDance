@@ -960,8 +960,7 @@ clock_t prevTime = -1;
 
                         streamData[k * 9 + 8] = body.skeleton.joints[k].confidence_level; //confidence
                     }
-
-                    printf("%f blag", streamData[288]);
+                  
                     prevBody = body;
                     prevTime = timestampUsec;
                 }
