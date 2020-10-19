@@ -19,13 +19,16 @@ import matplotlib.pyplot as plt
 #MAX_DEPTH_FOR_VIS = 8000.0
 #MAX_AB_FOR_VIS = 512.0
 
-clipFrames = 165
+clipFrames = 120
 
 buffer = []
 currentdata = []
 
-model = keras.models.load_model('C:\\Users\\Anton\\Desktop\\aks\\Azure-Kinect-Samples-master\\body-tracking-samples\\jump_analysis_sample\\models\\mdl_wts.hdf5')
+#model = keras.models.load_model('C:\\Users\\Anton\\Desktop\\aks\\Azure-Kinect-Samples-master\\body-tracking-samples\\jump_analysis_sample\\models\\mdl_wts.hdf5')
 
+from GestureRecognitionML.Model import CNN_n_LSTM
+
+model = CNN_n_LSTM.CNN_n_LSTM(lr=0, bs=0, e=0, loadModel=True, split=1, f='')
 
 
 if __name__ == "__main__":
@@ -50,47 +53,40 @@ if __name__ == "__main__":
         data = np.frombuffer(inputData[1], dtype="float32", count=-1, offset=0)
         #print(len(data))
         if(OldStamp != data[288]):
-            #print("%.6f" %data[192])
             OldStamp = data[288]
             if(len(buffer) == clipFrames):
                 buffer.pop(0)
-                #print(data[0])
-
-
-            print("X, Y, Z *********************")
-            print("%.6f" %data[289])
-            print("%.6f" %data[290])
-            print("%.6f" %data[291])
 
             buffer.append(data[:-3]) #removes the last 3 elements from the list (x, y ,z)
-
-            #for x in buffer:
-             #   print("%.6f" %x[288])
-
             rs = np.asarray(buffer)
 
-            #print( np.reshape(rs, (1, rs.shape[0], rs.shape[1])).shape)
+            if(len(buffer) == clipFrames):
+                shape = np.reshape(rs, (rs.shape[0], rs.shape[1]))
+                encode = ['jumping jacks', 'sitting arms down', 'sitting crossed arms', 'walking']
+                predict = model.predict(shape)[0]
 
-            if(len(buffer) == 165 ):
-                predict = model.predict(np.reshape(rs, (1, rs.shape[0], rs.shape[1])))
-                #pvalues = predict[0]
-                #print("%.6f" %pvalues[0])
-                #print("%.6f" % pvalues[1])
-                #print("%.6f" % pvalues[2])
-                print(np.reshape(rs, (1, rs.shape[0], rs.shape[1])))
-                print(rs[0][0])
+
+                print('PREDICTION:')
+                encodedLabels = []
+                for i in range(0, len(encode)):
+                    encodedLabels.append((encode[i], predict[i]))
+
+                def sortByCertainty(label):
+                    return -label[1]
+
+                encodedLabels.sort(key=sortByCertainty)
+                for encode in encodedLabels:
+                    print(encode)
                 print("*********************************'")
-
-
-           # for x in buffer[0]:
-            #   print(("%.6f" %x))
-            #print("***************************************************************************")
-
+            else:
+                print(len(buffer))
+                print('buffer not full')
 
         key = cv2.waitKey(1)
         if key == 27: # Esc key to stop
-            break 
+            break
 
+    print('out of while')
     win32file.CloseHandle(fileHandle)
 
 

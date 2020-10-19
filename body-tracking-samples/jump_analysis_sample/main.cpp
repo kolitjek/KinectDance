@@ -693,6 +693,8 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam)
             if (GetLastError() == ERROR_BROKEN_PIPE)
             {
                 printf(TEXT("InstanceThread: client disconnected.\n"), GetLastError());
+                streamConnected = false;
+
             }
             else
             {
