@@ -41,6 +41,7 @@ void PrintAppUsage()
     printf(" 5. Press 'Q' or 'ESC' to exit program, this is important because it turns off the camera\n");
     printf(" 6. Press 'I' to show pointCloud. This will be stopped if recording for performance reasons\n");
     printf("7. Press 'M' to stream to Python Pipe");
+    printf("8. Press 'N' to normalize skeleton");
 
     printf("\n");
 }
@@ -89,7 +90,7 @@ bool normalize = false;
 
 bool runOrLoadChosed = false;
 
-bool saveRecord = false;
+bool saveRecord = true;
 
 bool stream = false;
 
@@ -220,7 +221,160 @@ k4abt_body_t  NormalizeBody(k4abt_body_t body) {
     return body;
 }
 
-void Load_csv(std::string filename) {
+void write_csv(std::string path, std::vector<std::pair<std::string, std::vector<float>>> dataset) {
+    // Create an output filestream object
+    std::ofstream myFile(path);
+
+    // Send column names to the stream
+
+    for (int j = 0; j < dataset.size(); ++j)
+    {
+        myFile << std::fixed << std::setprecision(6) << dataset.at(j).first;
+        if (j != dataset.size() - 1) myFile << ";"; // No comma at end of line
+    }
+    myFile << "\n";
+
+    // Send data to the stream
+    for (int i = 0; i < dataset.at(0).second.size(); ++i)
+    {
+        for (int j = 0; j < dataset.size(); ++j)
+        {
+            myFile << std::fixed << std::setprecision(6) << dataset.at(j).second.at(i);
+            if (j != dataset.size() - 1) myFile << ";"; // No comma at end of line
+        }
+        myFile << "\n";
+    }
+
+    // Close the file
+    myFile.close();
+}
+
+void saveRecords(std::string nameOfClip, std::string folderToSaveToInPath) {
+    printf("number of frames to be saved: %d\n", m_listOfBodyPositions.size());
+
+    //char str[200];
+    // FILE* fp;
+
+
+    std::string newPathCSV;
+
+    bool validFileName = false;
+
+    //std::string nameOfclip = "jumpingJacks_";
+
+    int fileNameCounter = 0;
+    while (!validFileName) {
+       // printf("\n Enter a name for the file: ");
+        //  scanf("%s", str);
+
+        newPathCSV = pathString + folderToSaveToInPath + "\\" + nameOfClip + "_" + std::to_string(fileNameCounter) + ".csv";
+
+        //printf(newPathCSV.c_str());
+        //C:\Users\Anton\Desktop\aks\Azure-Kinect-Samples-master\body-tracking-samples\jump_analysis_sample\records
+
+
+        
+
+        std::ifstream infile(newPathCSV);
+        if (infile.good()) {
+           // printf("\n File name exits! choose another name\n");
+            fileNameCounter++;
+
+        }
+        /* if (fp = fopen(newPath.c_str(), "r")) {
+             fclose(fp);
+         }*/
+        else {
+            printf("\n valid File name, saving...");
+            validFileName = true;
+        }
+
+    }
+    std::vector<std::pair<std::string, std::vector<float>>> vals;
+
+    //open the file for writing
+   // fp = fopen(newPath.c_str(), "w");
+
+    //save all vector pos
+
+    for (int z = 0; z < 32; z++) {
+        std::string posx = "posX" + std::to_string(z);;
+        std::string posy = "posY" + std::to_string(z);
+        std::string posz = "posZ" + std::to_string(z);
+      //  std::string posvel = "posVel" + std::to_string(z);
+      //  std::string rotx = "rotX" + std::to_string(z);
+      //  std::string roty = "rotY" + std::to_string(z);
+      //  std::string rotz = "rotZ" + std::to_string(z);
+      //  std::string rotvel = "rotVel" + std::to_string(z);
+      //  std::string confi = "confidence" + std::to_string(z);
+
+        vals.push_back({ posx, std::vector<float>() });
+        vals.push_back({ posy,std::vector<float>() });
+        vals.push_back({ posz,std::vector<float>() });
+       // vals.push_back({ posvel,std::vector<float>() });
+
+       // vals.push_back({ rotx,std::vector<float>() });
+       // vals.push_back({ roty,std::vector<float>() });
+       // vals.push_back({ rotz,std::vector<float>() });
+       // vals.push_back({ rotvel,std::vector<float>() });
+
+       // vals.push_back({ confi,std::vector<float>() });
+    }
+
+    for (int i = 0; i < m_listOfBodyPositions.size(); i++) {
+
+        //timestamp in the file
+      //  fprintf(fp, "%f,", m_framesTimestampInUsec[i]);
+
+        for (int x = 0; x < (sizeof(m_listOfBodyPositions[0].skeleton.joints) / sizeof(m_listOfBodyPositions[0].skeleton.joints[0])); x++) {
+
+            //vector pos
+        //    fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].position.v[0]); //x
+          //  fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].position.v[1]); //y
+            //fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].position.v[2]); //z
+
+            vals[x * 3].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].position.v[0]);
+            vals[x * 3 + 1].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].position.v[1]);
+            vals[x * 3 + 2].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].position.v[2]);
+            /*if (i > 0) {
+                vals[x * 3 + 3].second.push_back(CalcVelGivenTwoPointsAndTime(m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i - 1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i]));
+                //printf("x1 :%f, y1: %f, z1: %f, time1: %f, x2: %f, y2: %f, z2: %f,time2: %f \n", m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i - 1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i]);
+            }
+            else
+                vals[x * 3 + 3].second.push_back(0.0);*/
+
+            //Orientation
+          //  fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[0]); //x
+           // fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[1]); //y
+           // fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[2]); //z
+
+
+           // vals[x * 9 + 4].second.push_back(0); //m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[0]);
+           // vals[x * 9 + 5].second.push_back(0);//m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[1]);
+           // vals[x * 9 + 6].second.push_back(0);//(m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[2]);
+           // vals[x * 9 + 7].second.push_back(0.0);
+
+
+
+
+
+            //confidence of joint
+          //  fprintf(fp, "%d,", m_listOfBodyPositions[i].skeleton.joints[x].confidence_level); // cofidence [0-4] 0 lowest, 4 highest               
+
+          //  vals[x * 9 + 8].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].confidence_level);
+        }
+    }
+   // vals.push_back({ "TimeStamp", m_framesTimestampInUsec });
+
+    // close the file
+   // fclose(fp);
+    if (m_listOfBodyPositions.size() > 1)
+        write_csv(newPathCSV, vals);
+}
+
+
+int numberOfFramesPrSplit = 120;
+void Load_csv(std::string filename, bool splitRecord) {
 
     // Create an input filestream
     std::ifstream myFile(filename);
@@ -291,37 +445,20 @@ void Load_csv(std::string filename) {
             }
             m_listOfBodyPositions.push_back(body);
             m_framesTimestampInUsec.push_back(vals[vals.size() - 1]);
+
+            //printf("%d  Length of shit",  m_listOfBodyPositions.size());
+
+            if (splitRecord && m_listOfBodyPositions.size() == numberOfFramesPrSplit) {
+                saveRecords("sittingArmsDown", "splitRecords");
+                printf("\nFinished a split...");
+
+                m_listOfBodyPositions.clear();
+                m_framesTimestampInUsec.clear();
+            }
         }
     }
 }
 
-void write_csv(std::string path, std::vector<std::pair<std::string, std::vector<float>>> dataset){
-    // Create an output filestream object
-    std::ofstream myFile(path);
-  
-    // Send column names to the stream
-
-    for (int j = 0; j < dataset.size(); ++j)
-    {
-        myFile << std::fixed << std::setprecision(6) << dataset.at(j).first;
-        if (j != dataset.size() - 1) myFile << ";"; // No comma at end of line
-    }
-    myFile << "\n";
-
-    // Send data to the stream
-    for (int i = 0; i < dataset.at(0).second.size(); ++i)
-    {
-        for (int j = 0; j < dataset.size(); ++j)
-        {
-            myFile << std::fixed << std::setprecision(6) << dataset.at(j).second.at(i);
-            if (j != dataset.size() - 1) myFile << ";"; // No comma at end of line
-        }
-        myFile << "\n";
-    }
-
-    // Close the file
-    myFile.close();
-}
 
 
 int64_t CloseCallback(void* /*context*/)
@@ -329,6 +466,8 @@ int64_t CloseCallback(void* /*context*/)
     s_isRunning = false;
     return 1;
 }
+
+
 
 
 
@@ -352,7 +491,9 @@ void CreateRenderWindow(
 
 
 
-void LoadFile() {
+void LoadFile(bool splitRecord) {
+
+    saveRecord = false;
 
     // CalcVelGivenTwoPointsAndTime(0, 0, 0, 0, 1000, 1000, 1000, 1000);
 
@@ -362,10 +503,13 @@ void LoadFile() {
 
     int fSize = 0;
     char input[200];
+    if (!splitRecord)
+        printf("\n Load a file... \n \n Files to choose: \n");
+    else
+        printf("\n split a file... \n \n Files to choose : \n");
 
-    printf("\n Load a file... \n \n Files to choose: \n");
 
-    for (const auto& entry : fs::directory_iterator(pathString)) {
+    for (const auto& entry : fs::directory_iterator(pathString + "\\records")) {
 
         std::string s = entry.path().u8string();
         int pos = s.find_last_of('\\');
@@ -378,7 +522,7 @@ void LoadFile() {
     printf("\nEnter a file:   ");
     scanf("%s", input);
 
-    Load_csv(std::string(pathString + input + ".csv").c_str());
+    Load_csv(std::string(pathString + "records\\" + input + ".csv").c_str(), splitRecord);
     /*
     
     FILE* ptr = fopen(( std::string (pathString + input + ".txt").c_str()), "r");
@@ -472,7 +616,6 @@ void Stream()
         // The client could not connect, so close the pipe.
         CloseHandle(hPipe);
 
-    printf("called again********************************************************************************************************");
 }
 
 
@@ -622,73 +765,104 @@ VOID GetAnswerToRequest(LPTSTR pchRequest,
 
     *pchBytes = 1168;
     //printf("streamdata size: %d \n", streamData.size());
+}
 
+float DistBetweenTwoJoints(float point1[3], float point2[3]) {
+    float dist = sqrt(pow(point1[0] - point2[0], 2) + pow(point1[1] - point2[1], 2) + pow(point1[2] - point2[2], 2));
+    return dist;
+}
 
+k4abt_body_t NormalizeEachJoint(k4abt_body_t body) {
+
+    return body;
 
 }
 
+void LengthOfBodyParts(k4abt_body_t body) {
 
-int main()
-{
-    char rOrL;
+    printf("\n ************     NEW BODY      ******************");
 
-    pathString = fs::current_path().u8string().substr(0, fs::current_path().u8string().length() - 15) + "\\records\\";
+    printf("******************************************* \n");
 
-    printf("Enter 'r' to run or l to load file: ");
-    scanf("%c", &rOrL);
+    printf("HANDTIP_RIGHT -> HAND_RIGHT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_HANDTIP_RIGHT].position.v, body.skeleton.joints[K4ABT_JOINT_HAND_RIGHT].position.v));
 
-    if (rOrL != 'r' && rOrL != 'l') {
-        return -1;
-    }
+    printf("HAND_RIGHT -> WRIST_RIGHT:  %f\n",   DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_HANDTIP_RIGHT].position.v, body.skeleton.joints[K4ABT_JOINT_WRIST_RIGHT].position.v));
 
-    if (rOrL == 'l') {
-        s_isRunning = false;
-        LoadFile();
-    }
-    PrintAppUsage();
+    printf("THUMB_RIGHT -> WRIST_RIGHT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_THUMB_RIGHT].position.v, body.skeleton.joints[K4ABT_JOINT_WRIST_RIGHT].position.v));
 
-    k4a_device_t device = nullptr;
-    VERIFY(k4a_device_open(0, &device), "Open K4A Device failed!");
+    printf("HAND_RIGHT -> WRIST_RIGHT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_HAND_RIGHT].position.v, body.skeleton.joints[K4ABT_JOINT_WRIST_RIGHT].position.v));
 
-    // Start camera. Make sure depth camera is enabled.
-    k4a_device_configuration_t deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
-    deviceConfig.depth_mode = K4A_DEPTH_MODE_WFOV_2X2BINNED;
-    deviceConfig.color_resolution = K4A_COLOR_RESOLUTION_OFF;
-    deviceConfig.camera_fps = K4A_FRAMES_PER_SECOND_30;
-    VERIFY(k4a_device_start_cameras(device, &deviceConfig), "Start K4A cameras failed!");
+    printf("WRIST_RIGHT -> ELBOW_RIGHT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_WRIST_RIGHT].position.v, body.skeleton.joints[K4ABT_JOINT_ELBOW_RIGHT].position.v));
 
-    // Get calibration information
-    k4a_calibration_t sensorCalibration;
-    VERIFY(k4a_device_get_calibration(device, deviceConfig.depth_mode, deviceConfig.color_resolution, &sensorCalibration),
-        "Get depth camera calibration failed!");
+    printf("ELBOW_RIGHT -> SHOULDER_RIGHT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_ELBOW_RIGHT].position.v, body.skeleton.joints[K4ABT_JOINT_SHOULDER_RIGHT].position.v));
 
-    // Create Body Tracker
-    k4abt_tracker_t tracker = nullptr;
-    k4abt_tracker_configuration_t tracker_config = K4ABT_TRACKER_CONFIG_DEFAULT;
-    VERIFY(k4abt_tracker_create(&sensorCalibration, tracker_config, &tracker), "Body tracker initialization failed!");
+    printf("SHOULDER_RIGHT ->  CLAVICLE_RIGHT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_SHOULDER_RIGHT].position.v, body.skeleton.joints[K4ABT_JOINT_CLAVICLE_RIGHT].position.v));
 
-    // Initialize the 3d window controller
-    Window3dWrapper window3d;
-    window3d.Create("3D Visualization", sensorCalibration);
-    window3d.SetCloseCallback(CloseCallback);
-    window3d.SetKeyCallback(ProcessKey);
+    printf("CLAVICLE_RIGHT -> SPINE_CHEST:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_CLAVICLE_RIGHT].position.v, body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v));
 
-    Window3dWrapper m_window3dReplay;
-    m_window3dReplay.SetCloseCallback(CloseCallback);
-    m_window3dReplay.SetKeyCallback(ProcessKey);
-    
-    bool isReplayWindowCreated = false;
+    printf("******************************************* \n");
 
-    // Initialize the jump evaluator
-   // JumpEvaluator jumpEvaluator;
+    printf("HANDTIP_LEFT -> HAND_LEFT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_HANDTIP_LEFT].position.v, body.skeleton.joints[K4ABT_JOINT_HAND_LEFT].position.v));
 
-    clock_t before;
-    clock_t difference;
-    bool runOnce = false;
-    int fpscounter = 0;
-    k4abt_body_t prevBody;
-    clock_t prevTime = -1;
+    printf("HAND_LEFT -> WRIST_LEFT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_HAND_LEFT].position.v, body.skeleton.joints[K4ABT_JOINT_WRIST_LEFT].position.v));
 
+    printf("THUMB_LEFT -> WRIST_LEFT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_THUMB_LEFT].position.v, body.skeleton.joints[K4ABT_JOINT_WRIST_LEFT].position.v));
+
+    printf("HAND_LEFT -> WRIST_LEFT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_HAND_LEFT].position.v, body.skeleton.joints[K4ABT_JOINT_WRIST_LEFT].position.v));
+
+    printf("WRIST_LEFT -> ELBOW_LEFT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_WRIST_LEFT].position.v, body.skeleton.joints[K4ABT_JOINT_ELBOW_LEFT].position.v));
+
+    printf("ELBOW_LEFT -> SHOULDER_LEFT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_ELBOW_LEFT].position.v, body.skeleton.joints[K4ABT_JOINT_SHOULDER_LEFT].position.v));
+
+    printf("SHOULDER_LEFT ->  CLAVICLE_LEFT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_SHOULDER_LEFT].position.v, body.skeleton.joints[K4ABT_JOINT_CLAVICLE_LEFT].position.v));
+
+    printf("CLAVICLE_LEFT -> SPINE_CHEST:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_CLAVICLE_LEFT].position.v, body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v));
+
+    printf("******************************************* \n");
+
+    printf("HEAD -> NECK:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_HEAD].position.v, body.skeleton.joints[K4ABT_JOINT_NECK].position.v));
+
+    printf("NECK -> SPINE_CHEST:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_NECK].position.v, body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v));
+
+   
+    printf("******************************************* \n");
+
+
+    printf("SPINE_CHEST -> SPINE_NAVEL:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v, body.skeleton.joints[K4ABT_JOINT_SPINE_NAVEL].position.v));
+
+    printf("SPINE_NAVEL -> PELVIS:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_SPINE_NAVEL].position.v, body.skeleton.joints[K4ABT_JOINT_PELVIS].position.v));
+
+   
+    printf("******************************************* \n");
+
+
+    printf("FOOT_RIGHT -> ANKLE_RIGHT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_FOOT_RIGHT].position.v, body.skeleton.joints[K4ABT_JOINT_ANKLE_RIGHT].position.v));
+
+    printf("ANKLE_RIGHT -> KNEE_RIGHT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_ANKLE_RIGHT].position.v, body.skeleton.joints[K4ABT_JOINT_KNEE_RIGHT].position.v));
+
+    printf("KNEE_RIGHT -> HIP_RIGHT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_KNEE_RIGHT].position.v, body.skeleton.joints[K4ABT_JOINT_HIP_RIGHT].position.v));
+
+    printf("HIP_RIGHT -> PELVIS:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_HIP_RIGHT].position.v, body.skeleton.joints[K4ABT_JOINT_PELVIS].position.v));
+
+    printf("******************************************* \n");
+
+    printf("FOOT_LEFT -> ANKLE_LEFT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_FOOT_LEFT].position.v, body.skeleton.joints[K4ABT_JOINT_ANKLE_LEFT].position.v));
+
+    printf("ANKLE_LEFT -> KNEE_LEFT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_ANKLE_LEFT].position.v, body.skeleton.joints[K4ABT_JOINT_KNEE_LEFT].position.v));
+
+    printf("KNEE_LEFT -> HIP_LEFT:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_KNEE_LEFT].position.v, body.skeleton.joints[K4ABT_JOINT_HIP_LEFT].position.v));
+
+    printf("HIP_LEFT -> PELVIS:  %f\n", DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_HIP_LEFT].position.v, body.skeleton.joints[K4ABT_JOINT_PELVIS].position.v));
+
+}
+
+void Running(k4a_device_t device, Window3dWrapper& window3d, Window3dWrapper& m_window3dReplay, k4abt_tracker_t tracker) {
+clock_t difference;
+bool runOnce = false;
+int fpscounter = 0;
+k4abt_body_t prevBody;
+clock_t before;
+clock_t prevTime = -1;
     while (s_isRunning)
     {
         k4a_capture_t sensorCapture = nullptr;
@@ -735,23 +909,28 @@ int main()
                 k4abt_body_t body;
                 VERIFY(k4abt_frame_get_body_skeleton(bodyFrame, JumpEvaluationBodyIndex, &body.skeleton), "Get skeleton from body frame failed!");
                 body.id = k4abt_frame_get_body_id(bodyFrame, JumpEvaluationBodyIndex);
-             
+
+
                 if (!isRecording) {
-                   // float dist = sqrt(pow(body.skeleton.joints[K4ABT_JOINT_PELVIS].position.v[0], 2) + pow(body.skeleton.joints[K4ABT_JOINT_PELVIS].position.v[1], 2) + pow(body.skeleton.joints[K4ABT_JOINT_PELVIS].position.v[2], 2));
-                    float distBetween = sqrt(pow(body.skeleton.joints[K4ABT_JOINT_SHOULDER_LEFT].position.v[0] - body.skeleton.joints[K4ABT_JOINT_ELBOW_LEFT].position.v[0], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SHOULDER_LEFT].position.v[1] - body.skeleton.joints[K4ABT_JOINT_ELBOW_LEFT].position.v[1], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SHOULDER_LEFT].position.v[2] - body.skeleton.joints[K4ABT_JOINT_ELBOW_LEFT].position.v[2], 2));
+                     //float dist = sqrt(pow(body.skeleton.joints[K4ABT_JOINT_PELVIS].position.v[0], 2) + pow(body.skeleton.joints[K4ABT_JOINT_PELVIS].position.v[1], 2) + pow(body.skeleton.joints[K4ABT_JOINT_PELVIS].position.v[2], 2));
+                    //float distBetween = sqrt(pow(body.skeleton.joints[K4ABT_JOINT_SHOULDER_LEFT].position.v[0] - body.skeleton.joints[K4ABT_JOINT_ELBOW_LEFT].position.v[0], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SHOULDER_LEFT].position.v[1] - body.skeleton.joints[K4ABT_JOINT_ELBOW_LEFT].position.v[1], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SHOULDER_LEFT].position.v[2] - body.skeleton.joints[K4ABT_JOINT_ELBOW_LEFT].position.v[2], 2));
+                    //float distBetween = DistBetweenTwoJoints(body.skeleton.joints[K4ABT_JOINT_SHOULDER_LEFT].position.v, body.skeleton.joints[K4ABT_JOINT_ELBOW_LEFT].position.v);
                     //printf("X: %f, Y: %f,  Distance(Z): %f meters \n", body.skeleton.joints[K4ABT_JOINT_PELVIS].position.v[0], body.skeleton.joints[K4ABT_JOINT_PELVIS].position.v[1], dist / 1000);
-                    printf("Dist betwen left shoulder and left elbow: %f \n", distBetween);
+                    //printf("Dist betwen left shoulder and left elbow: %f \n", distBetween);
+
+                   // LengthOfBodyParts(body);
+
 
                 }
 
                 uint64_t timestampUsec = k4abt_frame_get_device_timestamp_usec(bodyFrame);
 
-              
+
                 //wrong x,y,z when normalize for the lest 3 pos
                 if (stream) {
 
 
-                    streamData[288] = timestampUsec;                 
+                    streamData[288] = timestampUsec;
                     streamData[289] = body.skeleton.joints[0].position.v[0];
                     streamData[290] = body.skeleton.joints[0].position.v[1];
                     streamData[291] = body.skeleton.joints[0].position.v[2];
@@ -760,34 +939,34 @@ int main()
                         body = NormalizeBody(body);
 
                     for (int k = 0; k < 32; k++) {
-                        streamData[k * 9  ] = body.skeleton.joints[k].position.v[0];
-                        streamData[k * 9+1] = body.skeleton.joints[k].position.v[1];
-                        streamData[k * 9+2] = body.skeleton.joints[k].position.v[2];
+                        streamData[k * 9] = body.skeleton.joints[k].position.v[0];
+                        streamData[k * 9 + 1] = body.skeleton.joints[k].position.v[1];
+                        streamData[k * 9 + 2] = body.skeleton.joints[k].position.v[2];
 
 
                         float posVel = 0;
 
-                        if(prevTime != -1 )
+                        if (prevTime != -1)
                             float posVel = (CalcVelGivenTwoPointsAndTime(prevBody.skeleton.joints[k].position.v[0], prevBody.skeleton.joints[k].position.v[1], prevBody.skeleton.joints[k].position.v[2], prevTime, body.skeleton.joints[k].position.v[0], body.skeleton.joints[k].position.v[1], body.skeleton.joints[k].position.v[2], timestampUsec));
-                        
+
                         streamData[k * 9 + 3] = body.skeleton.joints[k].position.v[2]; //posVel
 
-                        streamData[k * 9+4] = body.skeleton.joints[k].orientation.v[0];
-                        streamData[k * 9+5] = body.skeleton.joints[k].orientation.v[1];
-                        streamData[k * 9+6] = body.skeleton.joints[k].orientation.v[2];
+                        streamData[k * 9 + 4] = body.skeleton.joints[k].orientation.v[0];
+                        streamData[k * 9 + 5] = body.skeleton.joints[k].orientation.v[1];
+                        streamData[k * 9 + 6] = body.skeleton.joints[k].orientation.v[2];
 
-                        streamData[k * 9 + 7] = 0 ; //oriCVelS
+                        streamData[k * 9 + 7] = 0; //oriCVelS
 
 
-                        streamData[k * 9+8] = body.skeleton.joints[k].confidence_level; //confidence
+                        streamData[k * 9 + 8] = body.skeleton.joints[k].confidence_level; //confidence
                     }
-                    
+
                     printf("%f blag", streamData[288]);
                     prevBody = body;
                     prevTime = timestampUsec;
-                }            
+                }
 
-               if (isRecording) {
+                if (isRecording) {
 
                     fpscounter++;
 
@@ -805,28 +984,28 @@ int main()
                         fpscounter = 0;
                     }
 
-                       // printf(" frames in 6 sec %d:  , frames pr sec: %d \n",m_framesTimestampInUsec.size()+1, (m_framesTimestampInUsec.size()+1)/6 );
+                    // printf(" frames in 6 sec %d:  , frames pr sec: %d \n",m_framesTimestampInUsec.size()+1, (m_framesTimestampInUsec.size()+1)/6 );
 
-                        //body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST];
-                        //float dist = sqrt(pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[0], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[1], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[2], 2));
-                        //printf("Distance: %f meters", dist/1000);
-                   // }
-                    
+                     //body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST];
+                     //float dist = sqrt(pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[0], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[1], 2) + pow(body.skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position.v[2], 2));
+                     //printf("Distance: %f meters", dist/1000);
+                // }
 
-                        if (normalize) {
-                            m_listOfBodyPositions.push_back(NormalizeBody(body));
-                        }
 
-                        else
-                        {
-                            m_listOfBodyPositions.push_back(body);
-                        }
-                    
-                        m_framesTimestampInUsec.push_back(static_cast<float>(timestampUsec));
+                    if (normalize) {
+                        m_listOfBodyPositions.push_back(NormalizeBody(body));
+                    }
+
+                    else
+                    {
+                        m_listOfBodyPositions.push_back(body);
+                    }
+
+                    m_framesTimestampInUsec.push_back(static_cast<float>(timestampUsec));
                 }
 
 #pragma region Hand Raise Detector
-            // Update hand raise detector data
+                // Update hand raise detector data
                 if (useHandsToRecordOn) {
                     m_handRaisedDetector.UpdateData(body, timestampUsec);
 
@@ -834,7 +1013,7 @@ int main()
                     bool handsAreRaised = m_handRaisedDetector.AreBothHandsRaised();
                     if (!m_previousHandsAreRaised && handsAreRaised)
                     {
-                        
+
                         if (isRecording) {
                             printf("\nStopped record, press 's' to save or q to quit \n");
                             s_isRunning = false;
@@ -851,9 +1030,11 @@ int main()
             }
 
 #pragma endregion
-            
+
             // Visualize point cloud
             k4a_image_t depthImage = k4a_capture_get_depth_image(originalCapture);
+
+
             if (!isRecording && showPointCloud) {
                 window3d.UpdatePointClouds(depthImage);
             }
@@ -863,18 +1044,18 @@ int main()
             uint32_t numBodies = k4abt_frame_get_num_bodies(bodyFrame);
             for (uint32_t i = 0; i < numBodies; i++)
             {
-            k4abt_body_t body;
+                k4abt_body_t body;
                 VERIFY(k4abt_frame_get_body_skeleton(bodyFrame, i, &body.skeleton), "Get skeleton from body frame failed!");
                 body.id = k4abt_frame_get_body_id(bodyFrame, i);
 
                 Color color = g_bodyColors[body.id % g_bodyColors.size()];
                 color.a = i == JumpEvaluationBodyIndex ? 0.8f : 0.1f;
-                if(normalize)
-                window3d.AddBody(NormalizeBody( body), color); // HERE
+                if (normalize)
+                    window3d.AddBody(NormalizeBody(body), color); // HERE
 
                 else
                     window3d.AddBody(body, color); // HERE
-            }         
+            }
             k4a_capture_release(originalCapture);
             k4a_image_release(depthImage);
             k4abt_frame_release(bodyFrame);
@@ -886,7 +1067,6 @@ int main()
         }
 
     }
-
     if (!quit) {
         CreateRenderWindow(m_window3dReplay, "Replay", m_listOfBodyPositions[0], 2);
 
@@ -902,12 +1082,12 @@ int main()
                 currentReplayIndex = (currentReplayIndex + 1) % m_listOfBodyPositions.size();
                 auto currentBody = m_listOfBodyPositions[currentReplayIndex];
 
-                /*// Try to skip one frame if we detected a flip
+                // Try to skip one frame if we detected a flip
                 if (currentBody.skeleton.joints[K4ABT_JOINT_ANKLE_LEFT].position.xyz.x <=
                     currentBody.skeleton.joints[K4ABT_JOINT_ANKLE_RIGHT].position.xyz.x)
                 {
                     currentReplayIndex = (currentReplayIndex + 1) % m_listOfBodyPositions.size();
-                }*/
+                }
 
                 m_window3dReplay.CleanJointsAndBones();
                 m_window3dReplay.AddBody(m_listOfBodyPositions[currentReplayIndex], g_bodyColors[0]);
@@ -920,6 +1100,14 @@ int main()
         }
     }
 
+    if (saveRecord && !quit) {
+        saveRecords("test", "records"); //Change name of the clip you want to save, and select folder
+    }
+       
+}
+
+
+void ShutDownCamera(k4a_device_t device, Window3dWrapper& window3d, Window3dWrapper& m_window3dReplay, k4abt_tracker_t tracker) {
     window3d.Delete();
     m_window3dReplay.Delete();
     k4abt_tracker_shutdown(tracker);
@@ -927,118 +1115,80 @@ int main()
 
     k4a_device_stop_cameras(device);
     k4a_device_close(device);
-
-    if (saveRecord) {
-        printf("number of frames to be saved: %d\n", m_listOfBodyPositions.size());
-
-        char str[200];
-        FILE* fp;
-        
-
-        std::string newPath;
-        std::string newPathCSV;
-
-        bool validFileName = false;
-
-        while (!validFileName) {
-            printf("\n Enter a name for the file: ");
-            scanf("%s", str);
-            newPath = pathString + str + ".txt";
-            newPathCSV = pathString + str + ".csv";
-            if (fp = fopen(newPath.c_str(), "r")) {
-                fclose(fp);
-                printf("\n File name exits! choose another name\n");                
-            }
-            else {
-                printf("\n valid File name, saving...");
-                validFileName = true;
-            }
-                   
-        }
-
-
-            std::vector<std::pair<std::string, std::vector<float>>> vals;
-                  
-        //open the file for writing
-        fp = fopen(newPath.c_str(), "w");
-          
-            //save all vector pos
-             
-            for (int z = 0; z < 32; z++) {
-                std::string posx = "posX" + std::to_string(z);;
-                std::string posy = "posY" + std::to_string(z);
-                std::string posz = "posZ" + std::to_string(z);
-                std::string posvel = "posVel" + std::to_string(z);
-                std::string rotx = "rotX" + std::to_string(z);
-                std::string roty = "rotY" + std::to_string(z);
-                std::string rotz = "rotZ" + std::to_string(z);
-                std::string rotvel = "rotVel" + std::to_string(z);
-                std::string confi = "confidence" + std::to_string(z);
-
-                vals.push_back({ posx, std::vector<float>() });
-                vals.push_back({ posy,std::vector<float>() });
-                vals.push_back({ posz,std::vector<float>() });
-                vals.push_back({ posvel,std::vector<float>() });
-
-                vals.push_back({ rotx,std::vector<float>() });
-                vals.push_back({ roty,std::vector<float>() });
-                vals.push_back({ rotz,std::vector<float>() });
-                vals.push_back({ rotvel,std::vector<float>() });
-
-                vals.push_back({ confi,std::vector<float>() });
-            }
+}
 
 
 
+int main()
+{
+k4a_device_t device = nullptr;
+Window3dWrapper window3d;
+Window3dWrapper m_window3dReplay;
+k4abt_tracker_t tracker = nullptr;
 
-        for (int i = 0; i < m_listOfBodyPositions.size(); i++) {
-           
-            //timestamp in the file
-            fprintf(fp, "%f,", m_framesTimestampInUsec[i]);
+    char startInput;
 
-            for (int x = 0; x < (sizeof(m_listOfBodyPositions[0].skeleton.joints) / sizeof(m_listOfBodyPositions[0].skeleton.joints[0])); x++) {
-                           
-                //vector pos
-                fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].position.v[0]); //x
-                fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].position.v[1]); //y
-                fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].position.v[2]); //z
+    pathString = fs::current_path().u8string().substr(0, fs::current_path().u8string().length() - 15);
 
-                vals[x*9].second.push_back( m_listOfBodyPositions[i].skeleton.joints[x].position.v[0]);
-                vals[x * 9 +1].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].position.v[1]);
-                vals[x * 9 + 2].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].position.v[2]);
-                if (i > 0) {
-                    vals[x * 9 + 3].second.push_back(CalcVelGivenTwoPointsAndTime(m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i-1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i]));
-                    printf("x1 :%f, y1: %f, z1: %f, time1: %f, x2: %f, y2: %f, z2: %f,time2: %f \n", m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i-1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i]);
-                }
-                else 
-                    vals[x * 9 + 3].second.push_back(0.0);
+    printf("Enter 'r' to run or 'l' to load file or 's' to split a record into subsets: ");
+    scanf("%c", &startInput);
 
-                //Orientation
-                fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[0]); //x
-                fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[1]); //y
-                fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[2]); //z
-
-
-                vals[x * 9 + 4].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[0]);
-                vals[x * 9 + 5].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[1]);
-                vals[x * 9 + 6].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[2]);
-                vals[x * 9 + 7].second.push_back(0.0);
-
-
-
-
-                //confidence of joint
-                fprintf(fp, "%d,", m_listOfBodyPositions[i].skeleton.joints[x].confidence_level); // cofidence [0-4] 0 lowest, 4 highest               
-                vals[x * 9 + 8].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].confidence_level);
-            }   
-        }
-        vals.push_back({ "TimeStamp", m_framesTimestampInUsec });
-
-        
-        // close the file
-        fclose(fp);
-        write_csv(newPathCSV, vals);
+    if (startInput != 'r' && startInput != 'l' && startInput != 's' ) {
+        return -1;
+        s_isRunning = false;
     }
+
+    if (startInput == 'l' || startInput == 's') {
+        s_isRunning = false;
+
+        LoadFile(startInput == 's');
+    }
+    PrintAppUsage();
+
+    VERIFY(k4a_device_open(0, &device), "Open K4A Device failed!");
+
+    // Start camera. Make sure depth camera is enabled.
+    k4a_device_configuration_t deviceConfig = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+    deviceConfig.depth_mode = K4A_DEPTH_MODE_WFOV_2X2BINNED;
+    deviceConfig.color_resolution = K4A_COLOR_RESOLUTION_OFF;
+    deviceConfig.camera_fps = K4A_FRAMES_PER_SECOND_30;
+    VERIFY(k4a_device_start_cameras(device, &deviceConfig), "Start K4A cameras failed!");
+
+    // Get calibration information
+    k4a_calibration_t sensorCalibration;
+    VERIFY(k4a_device_get_calibration(device, deviceConfig.depth_mode, deviceConfig.color_resolution, &sensorCalibration),
+        "Get depth camera calibration failed!");
+
+    // Create Body Tracker
+    k4abt_tracker_configuration_t tracker_config = K4ABT_TRACKER_CONFIG_DEFAULT;
+    VERIFY(k4abt_tracker_create(&sensorCalibration, tracker_config, &tracker), "Body tracker initialization failed!");
+
+    // Initialize the 3d window controller
+    window3d.Create("3D Visualization", sensorCalibration);
+    window3d.SetCloseCallback(CloseCallback);
+    window3d.SetKeyCallback(ProcessKey);
+
+    m_window3dReplay.SetCloseCallback(CloseCallback);
+    m_window3dReplay.SetKeyCallback(ProcessKey);
+    
+    bool isReplayWindowCreated = false;
+
+    // Initialize the jump evaluator
+   // JumpEvaluator jumpEvaluator;
+
+    //while (!quit) {
+        Running(device, window3d, m_window3dReplay, tracker);
+        //  s_isRunning = true;
+        //isRecording = false;
+        //m_listOfBodyPositions.clear();
+        //m_framesTimestampInUsec.clear();
+    // }
+
+
+    ShutDownCamera(device, window3d, m_window3dReplay, tracker);
+
+    
+
     return 0;
 }
 
