@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 #MAX_DEPTH_FOR_VIS = 8000.0
 #MAX_AB_FOR_VIS = 512.0
 
-clipFrames = 120
+clipFrames = 122
 
 buffer = []
 currentdata = []
@@ -28,7 +28,7 @@ currentdata = []
 
 from GestureRecognitionML.Model import CNN_n_LSTM
 
-model = CNN_n_LSTM.CNN_n_LSTM(lr=0, bs=0, e=0, loadModel=True, split=1, f='')
+model = CNN_n_LSTM.CNN_n_LSTM(lr=0, bs=0, e=0, loadModel=True, split=1, f='splitRecords', path="GestureRecognitionML/")
 
 
 if __name__ == "__main__":

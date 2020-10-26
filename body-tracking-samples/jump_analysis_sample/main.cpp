@@ -301,30 +301,30 @@ void saveRecords(std::string nameOfClip, std::string folderToSaveToInPath) {
         std::string posx = "posX" + std::to_string(z);;
         std::string posy = "posY" + std::to_string(z);
         std::string posz = "posZ" + std::to_string(z);
-      //  std::string posvel = "posVel" + std::to_string(z);
-      //  std::string rotx = "rotX" + std::to_string(z);
-      //  std::string roty = "rotY" + std::to_string(z);
-      //  std::string rotz = "rotZ" + std::to_string(z);
-      //  std::string rotvel = "rotVel" + std::to_string(z);
-      //  std::string confi = "confidence" + std::to_string(z);
+        std::string posvel = "posVel" + std::to_string(z);
+        std::string rotx = "rotX" + std::to_string(z);
+        std::string roty = "rotY" + std::to_string(z);
+        std::string rotz = "rotZ" + std::to_string(z);
+        std::string rotvel = "rotVel" + std::to_string(z);
+        std::string confi = "confidence" + std::to_string(z);
 
         vals.push_back({ posx, std::vector<float>() });
         vals.push_back({ posy,std::vector<float>() });
         vals.push_back({ posz,std::vector<float>() });
-       // vals.push_back({ posvel,std::vector<float>() });
+        vals.push_back({ posvel,std::vector<float>() });
 
-       // vals.push_back({ rotx,std::vector<float>() });
-       // vals.push_back({ roty,std::vector<float>() });
-       // vals.push_back({ rotz,std::vector<float>() });
-       // vals.push_back({ rotvel,std::vector<float>() });
+        vals.push_back({ rotx,std::vector<float>() });
+        vals.push_back({ roty,std::vector<float>() });
+        vals.push_back({ rotz,std::vector<float>() });
+        vals.push_back({ rotvel,std::vector<float>() });
 
-       // vals.push_back({ confi,std::vector<float>() });
+        vals.push_back({ confi,std::vector<float>() });
     }
 
     for (int i = 0; i < m_listOfBodyPositions.size(); i++) {
 
         //timestamp in the file
-      //  fprintf(fp, "%f,", m_framesTimestampInUsec[i]);
+        //fprintf(fp, "%f,", m_framesTimestampInUsec[i]);
 
         for (int x = 0; x < (sizeof(m_listOfBodyPositions[0].skeleton.joints) / sizeof(m_listOfBodyPositions[0].skeleton.joints[0])); x++) {
 
@@ -333,15 +333,15 @@ void saveRecords(std::string nameOfClip, std::string folderToSaveToInPath) {
           //  fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].position.v[1]); //y
             //fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].position.v[2]); //z
 
-            vals[x * 3].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].position.v[0]);
-            vals[x * 3 + 1].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].position.v[1]);
-            vals[x * 3 + 2].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].position.v[2]);
-            /*if (i > 0) {
-                vals[x * 3 + 3].second.push_back(CalcVelGivenTwoPointsAndTime(m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i - 1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i]));
+            vals[x * 9].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].position.v[0]);
+            vals[x * 9 + 1].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].position.v[1]);
+            vals[x * 9 + 2].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].position.v[2]);
+            if (i > 0) {
+                vals[x * 9 + 3].second.push_back(CalcVelGivenTwoPointsAndTime(m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i - 1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i]));
                 //printf("x1 :%f, y1: %f, z1: %f, time1: %f, x2: %f, y2: %f, z2: %f,time2: %f \n", m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i - 1].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i - 1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[0], m_listOfBodyPositions[i].skeleton.joints[x].position.v[1], m_listOfBodyPositions[i].skeleton.joints[x].position.v[2], m_framesTimestampInUsec[i]);
             }
             else
-                vals[x * 3 + 3].second.push_back(0.0);*/
+                vals[x * 9 + 3].second.push_back(0.0);
 
             //Orientation
           //  fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[0]); //x
@@ -349,10 +349,10 @@ void saveRecords(std::string nameOfClip, std::string folderToSaveToInPath) {
            // fprintf(fp, "%f,", m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[2]); //z
 
 
-           // vals[x * 9 + 4].second.push_back(0); //m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[0]);
-           // vals[x * 9 + 5].second.push_back(0);//m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[1]);
-           // vals[x * 9 + 6].second.push_back(0);//(m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[2]);
-           // vals[x * 9 + 7].second.push_back(0.0);
+            vals[x * 9 + 4].second.push_back(0); //m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[0]);
+            vals[x * 9 + 5].second.push_back(0);//m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[1]);
+            vals[x * 9 + 6].second.push_back(0);//(m_listOfBodyPositions[i].skeleton.joints[x].orientation.v[2]);
+            vals[x * 9 + 7].second.push_back(0.0);
 
 
 
@@ -361,20 +361,21 @@ void saveRecords(std::string nameOfClip, std::string folderToSaveToInPath) {
             //confidence of joint
           //  fprintf(fp, "%d,", m_listOfBodyPositions[i].skeleton.joints[x].confidence_level); // cofidence [0-4] 0 lowest, 4 highest               
 
-          //  vals[x * 9 + 8].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].confidence_level);
+            vals[x * 9 + 8].second.push_back(m_listOfBodyPositions[i].skeleton.joints[x].confidence_level);
         }
     }
-   // vals.push_back({ "TimeStamp", m_framesTimestampInUsec });
+    vals.push_back({ "TimeStamp", m_framesTimestampInUsec });
 
     // close the file
    // fclose(fp);
     if (m_listOfBodyPositions.size() > 1)
         write_csv(newPathCSV, vals);
+
 }
 
 
 int numberOfFramesPrSplit = 120;
-void Load_csv(std::string filename, bool splitRecord) {
+void Load_csv(std::string filename, bool splitRecord, std::string nameOfStringClip) {
 
     // Create an input filestream
     std::ifstream myFile(filename);
@@ -449,7 +450,7 @@ void Load_csv(std::string filename, bool splitRecord) {
             //printf("%d  Length of shit",  m_listOfBodyPositions.size());
 
             if (splitRecord && m_listOfBodyPositions.size() == numberOfFramesPrSplit) {
-                saveRecords("sittingArmsDown", "splitRecords");
+                saveRecords(nameOfStringClip, "splitRecords");
                 printf("\nFinished a split...");
 
                 m_listOfBodyPositions.clear();
@@ -489,9 +490,37 @@ void CreateRenderWindow(
     window.SetWindowPosition(xPos, yPos);
 }
 
+void SplitRecords() {
+    saveRecord = false;
+
+    // CalcVelGivenTwoPointsAndTime(0, 0, 0, 0, 1000, 1000, 1000, 1000);
+
+    const int numberOfFloatsPrJoint = 225;
+    //                            vector pos  orientation                     timestamp
+    float str[numberOfFloatsPrJoint]; //32 vectors (body) *( ( 3(x,y,z) + 3*(x,y,z) + 1(confidence) )+ 1 (timestamp)  32 (3 * 3 + 1) +1 = 225 
+
+    int fSize = 0;
+        printf("\n split files... \n \n Files: \n");
 
 
-void LoadFile(bool splitRecord) {
+    for (const auto& entry : fs::directory_iterator(pathString + "\\records")) {
+
+        std::string s = entry.path().u8string();
+        int pos = s.find_last_of('\\');
+        std::string ss = s.substr(pos + 1);
+        std::string fileName = ss.substr(0, ss.length() - 4);
+        std::cout << fileName << "\n";
+
+    Load_csv(std::string(pathString + "records\\" + fileName + ".csv").c_str(), true, fileName.substr(0, fileName.find("_")));
+
+    m_framesTimestampInUsec.clear();
+    m_listOfBodyPositions.clear();
+
+    }
+
+}
+
+void LoadFile() {
 
     saveRecord = false;
 
@@ -503,10 +532,9 @@ void LoadFile(bool splitRecord) {
 
     int fSize = 0;
     char input[200];
-    if (!splitRecord)
-        printf("\n Load a file... \n \n Files to choose: \n");
-    else
-        printf("\n split a file... \n \n Files to choose : \n");
+    
+    printf("\n Load a file... \n \n Files to choose: \n");
+
 
 
     for (const auto& entry : fs::directory_iterator(pathString + "\\records")) {
@@ -522,7 +550,7 @@ void LoadFile(bool splitRecord) {
     printf("\nEnter a file:   ");
     scanf("%s", input);
 
-    Load_csv(std::string(pathString + "records\\" + input + ".csv").c_str(), splitRecord);
+    Load_csv(std::string(pathString + "records\\" + input + ".csv").c_str(), false, "");
     /*
     
     FILE* ptr = fopen(( std::string (pathString + input + ".txt").c_str()), "r");
@@ -1102,7 +1130,7 @@ clock_t prevTime = -1;
     }
 
     if (saveRecord && !quit) {
-        saveRecords("test", "records"); //Change name of the clip you want to save, and select folder
+        saveRecords("idle", "records"); //Change name of the clip you want to save, and select folder
     }
        
 }
@@ -1139,11 +1167,16 @@ k4abt_tracker_t tracker = nullptr;
         s_isRunning = false;
     }
 
-    if (startInput == 'l' || startInput == 's') {
+    if (startInput == 'l') {
         s_isRunning = false;
 
-        LoadFile(startInput == 's');
+        LoadFile();
     }
+    else if (startInput == 's'){
+              s_isRunning = false;
+              SplitRecords();
+        }
+
     PrintAppUsage();
 
     VERIFY(k4a_device_open(0, &device), "Open K4A Device failed!");
@@ -1172,23 +1205,20 @@ k4abt_tracker_t tracker = nullptr;
     m_window3dReplay.SetCloseCallback(CloseCallback);
     m_window3dReplay.SetKeyCallback(ProcessKey);
     
-    bool isReplayWindowCreated = false;
+   // bool isReplayWindowCreated = false;
 
     // Initialize the jump evaluator
    // JumpEvaluator jumpEvaluator;
 
-    //while (!quit) {
+    while (!quit) {
         Running(device, window3d, m_window3dReplay, tracker);
-        //  s_isRunning = true;
-        //isRecording = false;
-        //m_listOfBodyPositions.clear();
-        //m_framesTimestampInUsec.clear();
-    // }
-
+         s_isRunning = true;
+        isRecording = false;
+        m_listOfBodyPositions.clear();
+        m_framesTimestampInUsec.clear();
+     }
 
     ShutDownCamera(device, window3d, m_window3dReplay, tracker);
-
-    
 
     return 0;
 }
