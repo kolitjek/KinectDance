@@ -374,7 +374,7 @@ void saveRecords(std::string nameOfClip, std::string folderToSaveToInPath) {
 }
 
 
-int numberOfFramesPrSplit = 120;
+int numberOfFramesPrSplit = 60;
 void Load_csv(std::string filename, bool splitRecord, std::string nameOfStringClip) {
 
     // Create an input filestream
@@ -450,7 +450,7 @@ void Load_csv(std::string filename, bool splitRecord, std::string nameOfStringCl
             //printf("%d  Length of shit",  m_listOfBodyPositions.size());
 
             if (splitRecord && m_listOfBodyPositions.size() == numberOfFramesPrSplit) {
-                saveRecords(nameOfStringClip, "splitRecords");
+                saveRecords(nameOfStringClip, "splitRecords60frames");
                 printf("\nFinished a split...");
 
                 m_listOfBodyPositions.clear();
@@ -1130,7 +1130,7 @@ clock_t prevTime = -1;
     }
 
     if (saveRecord && !quit) {
-        saveRecords("idle", "records"); //Change name of the clip you want to save, and select folder
+        saveRecords("testidle", "records"); //Change name of the clip you want to save, and select folder
     }
        
 }
